@@ -2,7 +2,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 
-# 🧩 시간대 문자열 → 시간 숫자 매핑
+# 시간대 문자열 → 시간 숫자 매핑
 time_map = {
     '0시~2시': 0, '2시~4시': 2, '4시~6시': 4, '6시~8시': 6,
     '8시~10시': 8, '10시~12시': 10, '12시~14시': 12,
@@ -10,7 +10,7 @@ time_map = {
     '20시~22시': 20, '22시~24시': 22
 }
 
-# ✅ 연도별 xls 파일을 정리하는 함수
+# 연도별 xls 파일을 정리하는 함수
 def process_year_file(file_path: str, year: int) -> pd.DataFrame:
     df = pd.read_excel(file_path, engine="xlrd")
 
@@ -41,7 +41,7 @@ def process_year_file(file_path: str, year: int) -> pd.DataFrame:
 
     return df_final
 
-# ✅ DB 연결 및 데이터 삽입 함수
+# DB 연결 및 데이터 삽입 함수
 def insert_to_mysql(df_all: pd.DataFrame):
     db_user = "root"
     db_password = "dlgustmd1!"  # ← 본인 비밀번호로 수정
@@ -83,7 +83,7 @@ def insert_to_mysql(df_all: pd.DataFrame):
         engine.dispose()
         print("✅ 연결 종료")
 
-# ✅ 메인 실행 함수
+# 메인 실행 함수
 def main():
     base_dir = "1_team_project/data"  # 엑셀 파일 위치
     year_files = {
