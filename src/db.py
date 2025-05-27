@@ -44,7 +44,7 @@ def process_year_file(file_path: str, year: int) -> pd.DataFrame:
 # DB 연결 및 데이터 삽입 함수
 def insert_to_mysql(df_all: pd.DataFrame):
     db_user = "root"
-    db_password = "dlgustmd1!"  # ← 본인 비밀번호로 수정
+    db_password = "password"  # ← 본인 비밀번호로 수정
     db_host = "localhost"
     db_port = "3306"
     db_name = "ESTsoft_TP_1"
