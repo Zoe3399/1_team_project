@@ -1,0 +1,4 @@
+pandas-2.2.3
+sqlalchemy-2.0.41
+xlrd-2.0.1
+PyMySQL-1.1.1
