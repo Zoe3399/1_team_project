@@ -53,7 +53,7 @@ def insert_to_mysql(df_all: pd.DataFrame):
     engine = create_engine(f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}")
     with engine.connect() as conn:
         conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {db_name};"))
-
+    
     engine = create_engine(f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}")
 
     try:
