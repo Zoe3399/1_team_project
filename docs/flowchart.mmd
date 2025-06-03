@@ -1,0 +1,41 @@
+flowchart TD
+    Start[서비스 시작] --> LoginCheck{로그인 여부}
+    LoginCheck -- 아니오 --> GuestFlow[비회원 플로우]
+    LoginCheck -- 예 --> MemberFlow[회원 플로우]
+
+    %% 비회원 플로우
+    GuestFlow --> MainMap[메인페이지]
+    MainMap --> MapSearch[검색창: 주소·장소 검색]
+    MainMap --> MarkerClick[사고 위험 마커 클릭]
+    MarkerClick --> GuestDetail[상세보기: '회원 전용 메뉴입니다.' + 로그인/회원가입 안내]
+    MainMap --> End1[종료]
+
+    %% 회원 플로우
+    MemberFlow --> MainMap2[메인페이지]
+    MainMap2 --> MapSearch2[검색창: 주소·장소 검색]
+    MainMap2 --> MapTheme2[토글: 위험도/사고유형/시간대/실제사고 유무]
+    MainMap2 --> MarkerClick2[사고 위험 마커 클릭]
+    MarkerClick2 --> DetailPopup[상세보기 창 노출]
+    DetailPopup --> ShowInfo[지역명, 좌표, 위험등급, 사고건수, 사고유형 분포, 시간대별 그래프, 도로환경, 주변시설, csv 다운로드]
+    MainMap2 --> DataDownload[데이터 다운로드 메뉴 클릭]
+    DataDownload --> DownloadPage[데이터 다운로드 페이지]
+    DownloadPage --> RegionSelect[지역별 선택]
+    DownloadPage --> DownloadBtn[파일 다운로드]
+
+    %% 회원가입, 로그인/비번찾기
+    GuestFlow --> LoginPage[로그인]
+    LoginPage --> SignUp[회원가입]
+    SignUp --> Terms[이용약관 동의]
+    Terms --> SignUpForm[회원정보 입력]
+    SignUpForm --> EmailAuth[이메일 인증]
+    EmailAuth --> LoginPage
+
+    LoginPage --> FindPW[비밀번호 찾기]
+    FindPW --> PWEmail[이메일 인증]
+    PWEmail --> PWReset[비밀번호 재설정]
+    PWReset --> LoginPage
+
+    %% 기타
+    style GuestDetail fill:#ffefef,stroke:#f99,stroke-width:1px
+    style DetailPopup fill:#f0f8ff,stroke:#2196F3,stroke-width:1px
+    style DataDownload fill:#e7ffe8,stroke:#4caf50,stroke-width:1px
