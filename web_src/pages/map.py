@@ -6,7 +6,7 @@ from shapely.geometry import shape
 
 def show():
     st.title("🗺️ 대한민국 교통사고 위험 지도")
-    st.markdown("대한민국 지도를 기반으로 시각화가 준비될 예정입니다.")
+    st.subheader("지역별 교통사고 시각화를 지도에서 확인할 수 있습니다.")
 
     # 지역 선택 드롭다운
     region_coords = {
@@ -22,8 +22,10 @@ def show():
         "제주": [33.4996, 126.5312]
     }
 
-    selected_region = st.selectbox("📍 지역 선택", list(region_coords.keys()))
-    center = region_coords[selected_region]
+    with st.container():
+        st.markdown("### 지역 선택")
+        selected_region = st.selectbox("📍 아래에서 지역을 선택하세요", list(region_coords.keys()))
+        center = region_coords[selected_region]
 
     # 지도 생성
     m = folium.Map(location=center, zoom_start=10 if selected_region != "전국" else 7, control_scale=True)
@@ -44,9 +46,9 @@ def show():
         sido_geo,
         name="시도 경계",
         style_function=lambda x: {
-            'fillColor': '#f2f2f2',
-            'color': 'black',
-            'weight': 2,
+            'fillColor': '#E0ECF8',
+            'color': '#4A90E2',
+            'weight': 1.5,
             'fillOpacity': 0.2
         },
         tooltip=folium.GeoJsonTooltip(fields=['CTP_KOR_NM'], aliases=['시도'])
@@ -63,9 +65,9 @@ def show():
         name="시군구 경계",
         style_function=lambda x: {
             'fillColor': 'transparent',
-            'color': 'blue',
+            'color': '#5B5B5B',
             'weight': 1,
-            'fillOpacity': 0.1
+            'fillOpacity': 0.05
         },
         tooltip=folium.GeoJsonTooltip(fields=['SIG_KOR_NM'], aliases=['시군구'])
     ).add_to(m)
@@ -77,8 +79,8 @@ def show():
         centroid = geom.centroid
         folium.Marker(
             location=[centroid.y, centroid.x],
-            icon=folium.DivIcon(html=f"""<div style="font-size: 13px; color: black; text-align: center;">{name}</div>""")
+            icon=folium.DivIcon(html=f"""<div style="font-size: 12px; color: #2C2C2C; text-align: center;">{name}</div>""")
         ).add_to(m)
 
     # 지도 출력
-    st_folium(m, width=800, height=600)
+    st_folium(m, width=900, height=650)

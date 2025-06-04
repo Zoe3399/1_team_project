@@ -1,84 +1,68 @@
 import streamlit as st
-import folium
-import json
-from streamlit_folium import st_folium
-from shapely.geometry import shape
+from sqlalchemy import create_engine
+import pandas as pd
+import duckdb
+
+from map import show_map  # 팀에서 만든 지도 함수 import
+
+DB_URI = "postgresql://postgres:1234@localhost:5432/traffic_db"
+engine = create_engine(DB_URI, echo=False)
+
+def get_risk_data():
+    query = """
+    SELECT 
+        latitude,
+        longitude,
+        region_name AS location_name,
+        risk_level,
+        accident_count
+    FROM accident_detail
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+    LIMIT 300
+    """
+    df = duckdb.sql(query).df()
+    return df
 
 def show():
-    st.title("🗺️ 대한민국 교통사고 위험 지도")
-    st.markdown("대한민국 지도를 기반으로 시각화가 준비될 예정입니다.")
+    st.markdown(
+        '''
+        <style>
+        .big-title { font-size:2.2rem; font-weight:600; margin-bottom:1em; color:#fff; }
+        .desc { font-size:1.1rem; color:#bbb; margin-bottom:2em; }
+        .detail-panel { background: #181e22; padding: 2em 1em 2em 1.5em; border-radius: 12px; margin-top: 2em; min-height: 350px; }
+        </style>
+        ''', unsafe_allow_html=True
+    )
+    st.markdown('<div class="big-title">🗺️ 교통사고 위험 지도</div>', unsafe_allow_html=True)
+    st.markdown('<div class="desc">실시간 교통사고 위험지역을 한눈에! 마커에 마우스를 올리면 주요 정보, 클릭하면 상세정보가 화면에 나와요.</div>', unsafe_allow_html=True)
 
-    # 지역 선택 드롭다운
-    region_coords = {
-        "전국": [36.5, 127.9],
-        "서울": [37.5665, 126.9780],
-        "부산": [35.1796, 129.0756],
-        "대구": [35.8722, 128.6025],
-        "인천": [37.4563, 126.7052],
-        "광주": [35.1595, 126.8526],
-        "대전": [36.3504, 127.3845],
-        "울산": [35.5384, 129.3114],
-        "세종": [36.4801, 127.2890],
-        "제주": [33.4996, 126.5312]
-    }
+    search = st.text_input("🔎 지역 검색", placeholder="예: 강남역, 서초구, 서울시청")
+    st.markdown("#### 🔍 위험도 색상 안내")
+    st.markdown("🟥 고위험 | 🟧 중위험 | 🟩 저위험")
+    risk_filter = st.radio("위험도 선택", ["전체", "고", "중", "저"], horizontal=True)
 
-    selected_region = st.selectbox("📍 지역 선택", list(region_coords.keys()))
-    center = region_coords[selected_region]
+    df = get_risk_data()
 
-    # 지도 생성
-    m = folium.Map(location=center, zoom_start=10 if selected_region != "전국" else 7, control_scale=True)
+    # --- 2열 레이아웃: 왼쪽(상세), 오른쪽(지도) ---
+    col1, col2 = st.columns([1.1, 2])
 
-    # 선택 지역에 마커 표시
-    folium.Marker(
-        location=center,
-        popup=selected_region,
-        tooltip=selected_region,
-        icon=folium.Icon(color='blue', icon='info-sign')
-    ).add_to(m)
+    with col2:
+        # 지도 및 마커 출력
+        # show_map에서 클릭된 마커 index를 st.session_state["selected_marker"]에 저장하도록 map.py에서 구현 필요
+        show_map(df, search=search, risk_filter=risk_filter)
 
-    # 시도 GeoJSON
-    with open("data/법정구역_시도_simplified.geojson", 'r', encoding='utf-8') as f:
-        sido_geo = json.load(f)
-
-    folium.GeoJson(
-        sido_geo,
-        name="시도 경계",
-        style_function=lambda x: {
-            'fillColor': '#f2f2f2',
-            'color': 'black',
-            'weight': 2,
-            'fillOpacity': 0.2
-        },
-        tooltip=folium.GeoJsonTooltip(fields=['CTP_KOR_NM'], aliases=['시도'])
-    ).add_to(m)
-
-    # 시군구 GeoJSON
-    geojson_path = "data/법정구역_시군구_simplified.geojson"
-    with open(geojson_path, 'r', encoding='utf-8') as f:
-        geojson_data = json.load(f)
-
-    # 시군구 경계선 추가
-    folium.GeoJson(
-        geojson_data,
-        name="시군구 경계",
-        style_function=lambda x: {
-            'fillColor': 'transparent',
-            'color': 'blue',
-            'weight': 1,
-            'fillOpacity': 0.1
-        },
-        tooltip=folium.GeoJsonTooltip(fields=['SIG_KOR_NM'], aliases=['시군구'])
-    ).add_to(m)
-
-    # 시군구 중심에 이름 추가
-    for feature in geojson_data['features']:
-        name = feature['properties'].get('SIG_KOR_NM', '')
-        geom = shape(feature['geometry'])
-        centroid = geom.centroid
-        folium.Marker(
-            location=[centroid.y, centroid.x],
-            icon=folium.DivIcon(html=f"""<div style="font-size: 13px; color: black; text-align: center;">{name}</div>""")
-        ).add_to(m)
-
-    # 지도 출력
-    st_folium(m, width=800, height=600)
+    with col1:
+        # 클릭된 마커 정보 (없으면 안내)
+        selected = st.session_state.get("selected_marker", None)
+        if selected is not None and isinstance(selected, int) and 0 <= selected < len(df):
+            row = df.iloc[selected]
+            st.markdown('<div class="detail-panel">', unsafe_allow_html=True)
+            st.markdown(f"### 📍 {row['location_name']}  \n"
+                        f"**위험등급**: {row['risk_level']}  \n"
+                        f"**사고건수**: {row['accident_count']}건  \n"
+                        f"**좌표**: ({row['latitude']:.4f}, {row['longitude']:.4f})", unsafe_allow_html=True)
+            st.markdown('<br>', unsafe_allow_html=True)
+            st.button("상세창 닫기", on_click=lambda: st.session_state.pop("selected_marker", None))
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="detail-panel" style="color:#666;">지도에서 지역을 클릭하면 상세 정보가 여기에 표시됩니다.</div>', unsafe_allow_html=True)
