@@ -9,6 +9,7 @@ def get_risk_data():
     SELECT 
         latitude,
         longitude,
+        region_code,  -- region_code 추가
         region_name AS location_name,
         risk_level,
         accident_count
@@ -54,13 +55,16 @@ def main_page():
     col_left, col_right = st.columns([1.5, 2], gap="large")
 
     with col_left:
-        if "selected_region" in st.session_state and st.session_state["selected_region"]:
-            region_name = st.session_state["selected_region"]
-            detail_page(region_name)
+        # 선택된 지역 코드를 세션 상태에서 확인하도록 변경
+        if "selected_region_code" in st.session_state and st.session_state["selected_region_code"]:
+            region_code = st.session_state["selected_region_code"]
+            # detail_page에 region_code 전달
+            detail_page(region_code)
         else:
             st.markdown("### 📋 상세 정보")
             st.info("지역을 클릭하면 여기에 상세 정보가 표시됩니다.")
 
     with col_right:
         st.markdown("### 📍 사고 위험 지도")
-        show_map(df)
+        # show_map 호출 시, 각 지역 클릭하면 st.session_state['selected_region_code']가 해당 region_code로 변경되도록 map.py에서 처리됨
+        show_map(df)  # 지도 클릭 시 선택된 지역의 region_code가 st.session_state['selected_region_code']에 저장되도록 구현 필요 (map.py 참고)
