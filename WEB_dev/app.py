@@ -1,13 +1,19 @@
 import streamlit as st
-import main
-import reset_pw
+# 페이지 설정
+st.set_page_config(layout="wide")
 import login
-import terms
 import sign_up
+import terms
 import find_pw
+import reset_pw
+import main
 import detail
 import download
 import mypage
+import logout
+
+
+
 
 # --- 세션 상태 기본값 ---
 if "page" not in st.session_state:
@@ -19,7 +25,7 @@ if "user_id" not in st.session_state:
 
 # --- 로그인 체크 함수 ---
 def require_login():
-    if not st.session_state.get("is_login", False):
+    if not (st.session_state.get("is_login", False) or st.session_state.get("is_guest", False)):
         st.session_state["page"] = "login"
         st.stop()
 
@@ -28,7 +34,7 @@ def sidebar_menu():
     with st.sidebar:
         st.markdown("### 메뉴")
         pages = {
-            "메인 지도": "main",
+            "메인페이지": "main",
             "데이터 다운로드": "download",
             "마이페이지": "mypage",
             "로그아웃": "logout",
@@ -46,35 +52,42 @@ def top_nav():
 def main_router():
     page = st.session_state.get("page", "login")
     if page == "login":
-        login.show()
+        login.login_page()         
     elif page == "sign_up":
-        sign_up.show()
+        # 약관 동의가 안된 상태면 terms 페이지로, 동의하면 sign_up 페이지로
+        if not st.session_state.get("terms_agreed", False):
+            st.session_state["page"] = "terms"
+            st.rerun()
+        else:
+            sign_up.sign_up_page()
     elif page == "terms":
-        terms.show()
+        terms.terms_page()          
     elif page == "find_pw":
-        find_pw.show()
+        find_pw.find_pw_page()      
     elif page == "reset_pw":
-        reset_pw.show()
+        reset_pw.reset_pw_page()   
     elif page == "main":
         require_login()
         sidebar_menu()
         top_nav()
-        main.show()
+        main.main_page()            
     elif page == "download":
         require_login()
         sidebar_menu()
         top_nav()
-        download.show()
+        download.download_page()   
     elif page == "mypage":
         require_login()
         sidebar_menu()
         top_nav()
-        mypage.show()
+        mypage.mypage_page()        
     elif page == "detail":
         require_login()
         sidebar_menu()
         top_nav()
-        detail.show()
+        detail.detail_page()        
+    elif page == "logout":
+        logout.logout_page()
     else:
         st.error("페이지를 찾을 수 없습니다.")
 

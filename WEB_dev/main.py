@@ -1,12 +1,8 @@
 import streamlit as st
-from sqlalchemy import create_engine
 import pandas as pd
-import duckdb
-
 from map import show_map  # 팀에서 만든 지도 함수 import
-
-DB_URI = "postgresql://postgres:1234@localhost:5432/traffic_db"
-engine = create_engine(DB_URI, echo=False)
+from db import engine  # 데이터베이스 연결 엔진 import
+from detail import detail_page
 
 def get_risk_data():
     query = """
@@ -20,49 +16,51 @@ def get_risk_data():
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL
     LIMIT 300
     """
-    df = duckdb.sql(query).df()
+    df = pd.read_sql(query, engine)
     return df
 
-def show():
-    st.markdown(
-        '''
-        <style>
-        .big-title { font-size:2.2rem; font-weight:600; margin-bottom:1em; color:#fff; }
-        .desc { font-size:1.1rem; color:#bbb; margin-bottom:2em; }
-        .detail-panel { background: #181e22; padding: 2em 1em 2em 1.5em; border-radius: 12px; margin-top: 2em; min-height: 350px; }
-        </style>
-        ''', unsafe_allow_html=True
-    )
-    st.markdown('<div class="big-title">🗺️ 교통사고 위험 지도</div>', unsafe_allow_html=True)
-    st.markdown('<div class="desc">실시간 교통사고 위험지역을 한눈에! 마커에 마우스를 올리면 주요 정보, 클릭하면 상세정보가 화면에 나와요.</div>', unsafe_allow_html=True)
+def main_page():
+    # 제목 영역
+    st.markdown('''
+    <div style="background:#212a3e; padding:1.7em 2em 1.3em 2em; border-radius:16px; margin-bottom:2em; box-shadow:0 2px 14px 0 rgba(0,0,0,0.13);">
+      <div style="font-size:2.2rem; font-weight:700; color:#fff;">🗺️ 교통사고 위험 지도</div>
+      <div style="font-size:1.08rem; color:#f5f5f5; margin-top:0.6em;">지도에서 지역을 선택하면 왼쪽에 상세 정보가 표시됩니다.</div>
+      <div style="margin-top:1.1em;">
+        <span style="font-size:1.15em; color:#ff4d4d; font-weight:600;">🟥 고위험</span> &nbsp;
+        <span style="font-size:1.15em; color:#ffb94d; font-weight:600;">🟧 중위험</span> &nbsp;
+        <span style="font-size:1.15em; color:#3498db; font-weight:600;">🟦 저위험</span>
+      </div>
+    </div>
+    ''', unsafe_allow_html=True)
 
-    search = st.text_input("🔎 지역 검색", placeholder="예: 강남역, 서초구, 서울시청")
-    st.markdown("#### 🔍 위험도 색상 안내")
-    st.markdown("🟥 고위험 | 🟧 중위험 | 🟩 저위험")
-    risk_filter = st.radio("위험도 선택", ["전체", "고", "중", "저"], horizontal=True)
+    # 검색 필터 영역
+    with st.container():
+        st.markdown('<div style="background:#f8f9fc;border-radius:13px;padding:1em 2em 0.7em 2em;margin-bottom:1.3em;">', unsafe_allow_html=True)
+        colA, colB = st.columns([3, 5])
+        with colA:
+            search = st.text_input("지역 검색", placeholder="예: 강남역, 서울역")
+        with colB:
+            risk_filter = st.radio("위험도", ["전체", "고", "중", "저"], horizontal=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
+    # 데이터 가져오기 및 필터
     df = get_risk_data()
+    if risk_filter != "전체":
+        df = df[df["risk_level"] == risk_filter]
+    if search:
+        df = df[df["location_name"].str.contains(search, case=False, na=False)]
 
-    # --- 2열 레이아웃: 왼쪽(상세), 오른쪽(지도) ---
-    col1, col2 = st.columns([1.1, 2])
+    # 와이어프레임 구조: 좌측 상세정보 + 우측 지도
+    col_left, col_right = st.columns([1.5, 2], gap="large")
 
-    with col2:
-        # 지도 및 마커 출력
-        # show_map에서 클릭된 마커 index를 st.session_state["selected_marker"]에 저장하도록 map.py에서 구현 필요
-        show_map(df, search=search, risk_filter=risk_filter)
-
-    with col1:
-        # 클릭된 마커 정보 (없으면 안내)
-        selected = st.session_state.get("selected_marker", None)
-        if selected is not None and isinstance(selected, int) and 0 <= selected < len(df):
-            row = df.iloc[selected]
-            st.markdown('<div class="detail-panel">', unsafe_allow_html=True)
-            st.markdown(f"### 📍 {row['location_name']}  \n"
-                        f"**위험등급**: {row['risk_level']}  \n"
-                        f"**사고건수**: {row['accident_count']}건  \n"
-                        f"**좌표**: ({row['latitude']:.4f}, {row['longitude']:.4f})", unsafe_allow_html=True)
-            st.markdown('<br>', unsafe_allow_html=True)
-            st.button("상세창 닫기", on_click=lambda: st.session_state.pop("selected_marker", None))
-            st.markdown('</div>', unsafe_allow_html=True)
+    with col_left:
+        if "selected_region" in st.session_state and st.session_state["selected_region"]:
+            region_name = st.session_state["selected_region"]
+            detail_page(region_name)
         else:
-            st.markdown('<div class="detail-panel" style="color:#666;">지도에서 지역을 클릭하면 상세 정보가 여기에 표시됩니다.</div>', unsafe_allow_html=True)
+            st.markdown("### 📋 상세 정보")
+            st.info("지역을 클릭하면 여기에 상세 정보가 표시됩니다.")
+
+    with col_right:
+        st.markdown("### 📍 사고 위험 지도")
+        show_map(df)

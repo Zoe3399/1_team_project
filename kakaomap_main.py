@@ -1,5 +1,8 @@
 import streamlit as st
 from streamlit.components.v1 import html
+from sqlalchemy import text
+import pandas as pd
+from db import engine
 
 def show():
     st.markdown(
@@ -52,32 +55,40 @@ def show():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 3. 카카오맵 Embed
+    # 3. DB에서 위험도/검색 조건에 맞는 마커 데이터 조회
     js_key = "04ffcee5b4d4d2b87fca2e94cd2d4e69"
-    markers = [
-        {"lat": 37.5665, "lng": 126.9780, "risk": "고", "title": "서울시청", "desc": "사고다발, 위험도: 고"},
-        {"lat": 37.5700, "lng": 126.9830, "risk": "중", "title": "북촌", "desc": "위험도: 중"},
-        {"lat": 37.5600, "lng": 126.9750, "risk": "저", "title": "명동", "desc": "위험도: 저"},
-    ]
-    color_map = {"고":"red", "중":"orange", "저":"green"}
-    if selected and selected != "전체":
-        filtered_markers = [m for m in markers if m["risk"] == selected]
-    else:
-        filtered_markers = markers
+    params = {}
+    base_query = """
+        SELECT latitude, longitude, region_name AS title, risk_level, accident_count
+        FROM accident_detail
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+    """
+    if selected != "전체":
+        base_query += " AND risk_level = :risk"
+        params["risk"] = selected
+    if search:
+        base_query += " AND region_name ILIKE :search"
+        params["search"] = f"%{search}%"
+    base_query += " LIMIT 300"
+
+    with engine.connect() as conn:
+        df = pd.read_sql(text(base_query), conn, params=params)
 
     marker_js = ""
-    for m in filtered_markers:
-        color = color_map.get(m["risk"], "blue")
+    color_map = {"고": "red", "중": "orange", "저": "green"}
+    for _, row in df.iterrows():
+        color = color_map.get(row["risk_level"], "blue")
         marker_js += f"""
             var marker = new kakao.maps.Marker({{
-                position: new kakao.maps.LatLng({m['lat']},{m['lng']}),
+                position: new kakao.maps.LatLng({row['latitude']},{row['longitude']}),
                 map: map,
-                title: "{m['title']}"
+                title: "{row['title']}"
             }});
-            var iwContent = '<div class="info-window"><b>{m['title']}</b><br>{m['desc']}</div>';
+            var iwContent = '<div class="info-window"><b>{row['title']}</b><br>사고 건수: {row['accident_count']} / 위험도: {row['risk_level']}</div>';
             var infowindow = new kakao.maps.InfoWindow({{ content: iwContent }});
             kakao.maps.event.addListener(marker, 'click', function() {{
                 infowindow.open(map, marker);
+                st.session_state["selected_region"] = "{row['title']}";
             }});
         """
 
