@@ -100,3 +100,21 @@ def detail_page(region):
     if st.button("뒤로 가기"):
         st.session_state["page"] = "main"
         st.experimental_rerun()
+
+
+# region 이름(또는 코드)로 accident_detail에서 상세정보를 반환하는 함수
+def get_detail_info(region):
+    """
+    region 이름(또는 코드)로 accident_detail에서 상세정보를 반환
+    dict로 반환 (없으면 None)
+    """
+    with engine.connect() as conn:
+        query_detail = text("""
+            SELECT *
+            FROM accident_detail
+            WHERE region_name = :r
+        """)
+        detail_row = conn.execute(query_detail, {"r": region}).first()
+        if not detail_row:
+            return None
+        return dict(detail_row._mapping)

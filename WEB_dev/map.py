@@ -7,7 +7,7 @@ import pandas as pd
 import json
 from db import engine
 
-def show_map(data=None):
+def show_map(data=None,height=400):
     # st.subheader("📍 사고 위험 지도")
 
     # 1. 지도의 기본 중심(서울) 설정

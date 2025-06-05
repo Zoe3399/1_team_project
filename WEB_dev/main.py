@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
-from map import show_map  # 팀에서 만든 지도 함수 import
-from db import engine  # 데이터베이스 연결 엔진 import
-from detail import detail_page
+from map import show_map
+from db import engine
+from detail import get_detail_info
 
 def get_risk_data():
     query = """
     SELECT 
         latitude,
         longitude,
-        region_code,  -- region_code 추가
+        region_code,
         region_name AS location_name,
         risk_level,
         accident_count
@@ -21,50 +21,60 @@ def get_risk_data():
     return df
 
 def main_page():
-    # 제목 영역
     st.markdown('''
     <div style="background:#212a3e; padding:1.7em 2em 1.3em 2em; border-radius:16px; margin-bottom:2em; box-shadow:0 2px 14px 0 rgba(0,0,0,0.13);">
-      <div style="font-size:2.2rem; font-weight:700; color:#fff;">🗺️ 교통사고 위험 지도</div>
-      <div style="font-size:1.08rem; color:#f5f5f5; margin-top:0.6em;">지도에서 지역을 선택하면 왼쪽에 상세 정보가 표시됩니다.</div>
+      <div style="font-size:2.2rem; font-weight:700; color:#fff;">🗺️ 교통사고 발생 예측 지도</div>
+      <div style="font-size:1.08rem; color:#f5f5f5; margin-top:0.6em;">지도에서 지역을 클릭하면 상세 정보가 좌측에 표시됩니다.</div>
       <div style="margin-top:1.1em;">
         <span style="font-size:1.15em; color:#ff4d4d; font-weight:600;">🟥 고위험</span> &nbsp;
         <span style="font-size:1.15em; color:#ffb94d; font-weight:600;">🟧 중위험</span> &nbsp;
-        <span style="font-size:1.15em; color:#3498db; font-weight:600;">🟦 저위험</span>
+        <span style="font-size:1.15em; color:#22bb33; font-weight:600;">🟩 저위험</span>
       </div>
     </div>
     ''', unsafe_allow_html=True)
 
-    # 검색 필터 영역
-    with st.container():
-        st.markdown('<div style="background:#f8f9fc;border-radius:13px;padding:1em 2em 0.7em 2em;margin-bottom:1.3em;">', unsafe_allow_html=True)
-        colA, colB = st.columns([3, 5])
-        with colA:
-            search = st.text_input("지역 검색", placeholder="예: 강남역, 서울역")
-        with colB:
-            risk_filter = st.radio("위험도", ["전체", "고", "중", "저"], horizontal=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # 데이터 가져오기 및 필터
     df = get_risk_data()
+
+    colA, colB = st.columns([3, 5])
+    with colA:
+        search = st.text_input("지역 검색", placeholder="예: 강남역, 서울역")
+    with colB:
+        risk_filter = st.radio("위험도", ["전체", "고", "중", "저"], horizontal=True)
+
+    df_filtered = df.copy()
     if risk_filter != "전체":
-        df = df[df["risk_level"] == risk_filter]
+        df_filtered = df_filtered[df_filtered["risk_level"] == risk_filter]
     if search:
-        df = df[df["location_name"].str.contains(search, case=False, na=False)]
+        df_filtered = df_filtered[df_filtered["location_name"].str.contains(search, case=False, na=False)]
 
-    # 와이어프레임 구조: 좌측 상세정보 + 우측 지도
-    col_left, col_right = st.columns([1.5, 2], gap="large")
+    if "selected_region_code" not in st.session_state:
+        st.session_state.selected_region_code = None
 
-    with col_left:
-        # 선택된 지역 코드를 세션 상태에서 확인하도록 변경
-        if "selected_region_code" in st.session_state and st.session_state["selected_region_code"]:
-            region_code = st.session_state["selected_region_code"]
-            # detail_page에 region_code 전달
-            detail_page(region_code)
-        else:
-            st.markdown("### 📋 상세 정보")
-            st.info("지역을 클릭하면 여기에 상세 정보가 표시됩니다.")
-
+    col_left, col_right = st.columns([2, 4], gap="large")
     with col_right:
-        st.markdown("### 📍 사고 위험 지도")
-        # show_map 호출 시, 각 지역 클릭하면 st.session_state['selected_region_code']가 해당 region_code로 변경되도록 map.py에서 처리됨
-        show_map(df)  # 지도 클릭 시 선택된 지역의 region_code가 st.session_state['selected_region_code']에 저장되도록 구현 필요 (map.py 참고)
+        st.markdown("### 🗺️ 사고 위험 지도")
+        selected_code = show_map(df_filtered, height=420, width=600)
+        if selected_code:
+            st.session_state.selected_region_code = selected_code
+    with col_left:
+        st.markdown("#### 🗂️ 지역 상세 정보")
+        region_code = st.session_state.selected_region_code
+        if region_code:
+            detail = get_detail_info(region_code)
+            if detail:
+                st.markdown(f"""
+                    <div style="font-size:1.1rem;">
+                    <b>지역명:</b> {detail['region_name']}<br>
+                    <b>위험도:</b> {detail['risk_level']}<br>
+                    <b>사고건수:</b> {detail['accident_count']}<br>
+                    <b>고령자 비율:</b> {detail['elderly_ratio']*100:.1f}%<br>
+                    <b>도로환경:</b> {detail['road_env']}<br>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("상세 정보가 없습니다.")
+        else:
+            st.info("지도의 지역을 클릭하세요.")
+
+if __name__ == "__main__":
+    main_page()
