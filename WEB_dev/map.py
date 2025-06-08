@@ -7,7 +7,7 @@ import pandas as pd
 import json
 from db import engine
 
-def show_map(data=None,height=400):
+def show_map(data=None, height=200, key=None):
     # st.subheader("📍 사고 위험 지도")
 
     # 1. 지도의 기본 중심(서울) 설정
@@ -121,7 +121,7 @@ def show_map(data=None,height=400):
             folium.Popup(popup_text).add_to(folium.GeoJson(feature))
 
     # 전체 지도 먼저 표시
-    map_ret = st_folium(m, height=750, use_container_width=True, key="main_map")
+    map_ret = st_folium(m, height=750, use_container_width=True, key=key)
 
     # 클릭 처리: 좌표에 해당하는 행정구역명을 찾아 세션에 저장
     if map_ret and map_ret.get("last_clicked"):
